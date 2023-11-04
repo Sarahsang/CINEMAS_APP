@@ -11,7 +11,6 @@ class FirstPage(tk.Frame):
         self.guest_controller = GuestController()
         print("FirstPage initialized")
         
-        
         load = Image.open("APP\imag1.jpg")
         photo = ImageTk.PhotoImage(load)
         label = tk.Label(self, image=photo)

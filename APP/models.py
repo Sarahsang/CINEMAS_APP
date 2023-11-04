@@ -65,7 +65,7 @@ class General(ABC):
 
 
     def get_movie_details(self, movie) -> str:
-        return f"Movie({movie.title}, {movie.genre}, {movie.rDate})"
+        return f"Movie in model({movie.title}, {movie.genre}, {movie.rDate})"
 
 class Guest(General):
     def register(self, username: str, password: str, name: str, address: str, email: str, phone: str) -> str:
