@@ -12,57 +12,23 @@ class General(ABC):
         self.db = db 
 
     # same for all users
-    def search_movie_by_title(self, title: str) -> List['Movie']:
+    def search_movie_by_search_term(self, search_term: str) -> List['Movie']:
         with closing(self.db.get_connection()) as conn:
             with conn.cursor(dictionary=True) as cursor:
-                query = "SELECT * FROM Movie WHERE title LIKE %s"
+                query = """
+                SELECT * FROM Movie WHERE title LIKE %s
+                OR lang LIKE %s
+                OR genre LIKE %s
+                OR rDate LIKE %s
+                """
+                like_term = f'%{search_term}%'
                 try:
-                    cursor.execute(query, ('%' + title + '%',))
-                    movies = cursor.fetchall()
-                    movie_objects = [Movie(**{k: v for k, v in movie.items() if k != 'movie_id'}) for movie in movies]
-                    for movie in movie_objects:
-                        print(movie)  # 应该调用 __str__ 方法
-                    print(movies)
-                except Exception as e:
-                    print(f"An error occurred: {e}")
-                return [Movie(**{k: v for k, v in movie.items() if k != 'movie_id'}) for movie in movies]
-
-    def search_movie_by_lang(self, lang: str) -> List['Movie']:
-        with closing(self.db.get_connection()) as conn:
-            with conn.cursor(dictionary=True) as cursor:
-                query = "SELECT * FROM Movie WHERE lang = %s"
-                try:
-                    cursor.execute(query, (lang,))
+                    cursor.execute(query, (like_term, like_term, like_term, like_term))
                     movies = cursor.fetchall()
                     print(movies)
                 except Exception as e:
                     print(f"An error occurred: {e}")
                 return [Movie(**{k: v for k, v in movie.items() if k != 'movie_id'}) for movie in movies]
-
-    def search_movie_by_genre(self, genre: str) -> List['Movie']:
-        with closing(self.db.get_connection()) as conn:
-            with conn.cursor(dictionary=True) as cursor:
-                query = "SELECT * FROM Movie WHERE genre = %s"
-                try:
-                    cursor.execute(query, (genre,))
-                    movies = cursor.fetchall()
-                    print(movies)
-                except Exception as e:
-                    print(f"An error occurred: {e}")
-                return [Movie(**{k: v for k, v in movie.items() if k != 'movie_id'}) for movie in movies]
-
-    def search_movie_by_date(self, rDate: str) -> List['Movie']:
-        with closing(self.db.get_connection()) as conn:
-            with conn.cursor(dictionary=True) as cursor:
-                query = "SELECT * FROM Movie WHERE rDate = %s"
-                try:
-                    cursor.execute(query, (rDate,))
-                    movies = cursor.fetchall()
-                    print(movies)
-                except Exception as e:
-                    print(f"An error occurred: {e}")
-                return [Movie(**{k: v for k, v in movie.items() if k != 'movie_id'}) for movie in movies]
-
 
     def get_movie_details(self, movie) -> str:
         return f"Movie in model({movie.title}, {movie.genre}, {movie.rDate})"
@@ -85,7 +51,6 @@ class Guest(General):
                     cursor.execute(insert_query, (username, password, name, address, email, phone, 'Customer'))
                     conn.commit()
                     return "Registration successful!"
-
 
 class Person(General):
 
@@ -994,7 +959,7 @@ class ScreeningSeat:
 general = General()
 
 # test search
-search_result = general.search_movie_by_title('the')
+search_result = general.search_movie_by_search_term('the')
 print(search_result)
 for movie in search_result:
     print(general.get_movie_details(movie))

@@ -56,7 +56,7 @@ class FirstPage(tk.Frame):
                 print("search_movies in view is called")
                 # messagebox.showinfo("Search Result", "\n".join(result))  # 删除这行
                 self.controller.show_frame(SearchResultPage)  # 切换到搜索结果页面
-                self.controller.frames[SearchResultPage].display_results(result)  # 显示结果
+                self.controller.frames[SearchResultPage].display_results(result, from_page="FirstPage")  # 显示结果
             else:
                 messagebox.showinfo("Search Result", result)
         else:
@@ -70,7 +70,7 @@ class FirstPage(tk.Frame):
             return
         
         if self.user_controller.login(uname, pswd):
-            self.controller.show_frame(SecondPage)
+            self.controller.show_frame(MainPage)
         else:
             messagebox.showinfo("Error", "Incorrect Username and Password")
             
@@ -160,7 +160,7 @@ class FirstPage(tk.Frame):
         window.geometry("479x600")
         window.mainloop()
 
-class SecondPage(tk.Frame):
+class MainPage(tk.Frame):
     def __init__(self,parent, controller):
         tk.Frame.__init__(self, parent)
         self.controller = controller
@@ -173,8 +173,8 @@ class SecondPage(tk.Frame):
         label.image=photo
         label.place(x=0, y=0)
 
-        Label = tk.Label(self, text="Second Page", font=("Arial Bold", 30))
-        Label.place(x=230, y=230)
+        Label = tk.Label(self, text="Welcome to Lincoln Cinemas", font=("Arial Bold", 30))
+        Label.place(x=120, y=210)
 
         Button = tk.Button(self, text="Next", font=("Arial",15), command = lambda:controller.show_frame(ThirdPage))
         Button.place(x=650, y=450)
@@ -200,7 +200,7 @@ class SecondPage(tk.Frame):
                 print("search_movies in view is called")
                 # messagebox.showinfo("Search Result", "\n".join(result))  # 删除这行
                 self.controller.show_frame(SearchResultPage)  # 切换到搜索结果页面
-                self.controller.frames[SearchResultPage].display_results(result)  # 显示结果
+                self.controller.frames[SearchResultPage].display_results(result, from_page="MainPage")  # 显示结果
             else:
                 messagebox.showinfo("Search Result", result)
         else:
@@ -216,16 +216,17 @@ class ThirdPage(tk.Frame):
         Button = tk.Button(self, text="Next", font=("Arial",15), command = lambda:controller.show_frame(FirstPage))
         Button.place(x=650, y=450)
 
-        Button = tk.Button(self, text="Back", font=("Arial",15), command = lambda:controller.show_frame(SecondPage))
+        Button = tk.Button(self, text="Back", font=("Arial",15), command = lambda:controller.show_frame(MainPage))
         Button.place(x=100, y=450)
 
 class SearchResultPage(tk.Frame):
     def __init__(self, parent, controller):
         tk.Frame.__init__(self, parent)
         self.controller = controller
+        self.from_page = None
         
-        Button = tk.Button(self, text="Back", font=("Arial",13), command = lambda:controller.show_frame(SecondPage))
-        Button.place(x=710, y=37)
+        self.back_button = tk.Button(self, text="Back", font=("Arial",13), command=self.go_back)
+        self.back_button.place(x=710, y=37)
         
         self.title_label = tk.Label(self, text="Movie Search Results", font=("Arial", 18))
         self.title_label.pack(side="top", fill="x", pady=10)
@@ -236,12 +237,121 @@ class SearchResultPage(tk.Frame):
         self.results_listbox = tk.Listbox(self, height=20, width=50, yscrollcommand=self.scrollbar.set, font=('Arial', 12))
         self.results_listbox.pack(pady=(20, 0), padx=20, fill='both', expand=True)
         self.scrollbar.config(command=self.results_listbox.yview)
+        self.results_listbox.bind('<<ListboxSelect>>', self.on_select)
+        
+    def go_back(self):
+            if self.from_page == "FirstPage":
+                self.controller.show_frame(FirstPage)
+            elif self.from_page == "MainPage":
+                self.controller.show_frame(MainPage)
 
-    def display_results(self, results):
-        self.results_listbox.delete(0, tk.END)  # 清空结果列表
+    def display_results(self, results, from_page):
+        self.from_page = from_page
+        self.results_listbox.delete(0, tk.END)
         for result in results:
-            self.results_listbox.insert(tk.END, result)  # 添加结果到列表
+            self.results_listbox.insert(tk.END, result)
 
+    def on_select(self, event):
+        # 事件处理器，当用户选择一个结果时调用
+        widget = event.widget
+        index = int(widget.curselection()[0])  # 获取选中项的索引
+        value = widget.get(index)  # 获取选中项的值
+
+        # 切换到 BookingPage，并传递选中的电影信息
+        if self.from_page == "FirstPage":
+            messagebox.showinfo("Action Required", "Please register or login to book a movie.")
+        elif self.from_page == "MainPage":
+            booking_page = self.controller.frames[BookingPage]
+            booking_page.get_movie_info(value)  # 需要在 BookingPage 中实现此方法
+            self.controller.show_frame(BookingPage)
+
+    def on_movie_selected(self, movie):
+        booking_page = self.controller.frame(BookingPage)
+        booking_page.set_movie_data(movie)
+        self.controller.show_frame(BookingPage)
+
+
+class BookingPage(tk.Frame):
+    def __init__(self, parent, controller):
+        tk.Frame.__init__(self, parent)
+        self.controller = controller
+        self.movies = {}  # 这里应该填充从数据库获取的电影数据
+        self.current_movie = None  # 当前选择的电影
+        self.current_index = 0  # 当前日期索引
+
+        # 页面布局代码...
+        self.header_label = tk.Label(self, text="Make a Booking", font=("Arial", 24))
+        self.header_label.pack(side="top", fill="x", pady=10)
+
+        # 电影详细信息的标签
+        self.movie_detail_label = tk.Label(self, text="", font=("Arial", 20))
+        self.movie_detail_label.pack(side="top", fill="x", pady=20)
+                # 初始化电影信息
+        self.display_movie_details()
+
+    def set_movie_data(self, movie):
+        print("Setting movie data:", movie)
+        self.movie = movie
+        self.display_movie_details()
+
+    def display_movie_details(self):
+        if hasattr(self, 'movie'):
+            print("Displaying movie details for:", self.movie.title)
+            details = (
+                f"Title: {self.movie.title}\n"
+                f"Language: {self.movie.lang}\n"
+                f"Genre: {self.movie.genre}\n"
+                f"Release Date: {self.movie.rDate}\n"
+                f"Duration: {self.movie.duration} mins\n"
+                f"Country: {self.movie.country}\n"
+                f"Description: {self.movie.description}"
+            )
+            self.movie_detail_label.config(text=details)
+        else:
+            print("No movie set to display")
+
+
+        # 日期和场次的框架
+        self.date_session_frame = tk.Frame(self)
+        self.date_session_frame.pack(fill="both", expand=True)
+
+        # 日期标签
+        self.date_label = tk.Label(self.date_session_frame, text="", font=("Arial", 18))
+        self.date_label.pack(side="top", pady=5)
+
+        # 场次的框架
+        self.session_frame = tk.Frame(self.date_session_frame)
+        self.session_frame.pack(fill="both", expand=True)
+
+        # 左右按钮
+        self.left_button = tk.Button(self.date_session_frame, text="<", command=lambda: self.change_date(-1))
+        self.left_button.pack(side="left", fill="y")
+
+        self.right_button = tk.Button(self.date_session_frame, text=">", command=lambda: self.change_date(1))
+        self.right_button.pack(side="right", fill="y")
+
+        # 返回按钮
+        self.back_button = tk.Button(self, text="Back", command=lambda: controller.show_frame(SearchResultPage))
+        self.back_button.pack(side="bottom", fill="x", pady=10)
+
+    def set_movie_data(self, movie_data):
+        # 设置当前电影信息并更新显示
+        self.current_movie = movie_data['title']
+        self.movies[self.current_movie] = movie_data['sessions']  # 假设 sessions 是一个包含日期和场次信息的列表
+        self.change_date(0)  # 初始化显示
+
+    def update_sessions(self, date_sessions):
+        # 更新场次信息的实现...
+        pass
+
+    def change_date(self, delta):
+        # 更改日期的实现...
+        pass
+
+    def get_movie_info(self, movie_data):
+            # 用于设置电影数据的方法
+            # 这里可以更新页面上的标签或其他元素来显示电影数据
+            print(movie_data)  # 作为示例，打印出电影数据
 
 class Application(tk.Tk):
     def __init__(self, *args, **kwargs):
@@ -254,7 +364,7 @@ class Application(tk.Tk):
         window.grid_columnconfigure(0, minsize=800)
 
         self.frames = {}
-        for F in (FirstPage, SecondPage, ThirdPage, SearchResultPage):
+        for F in (FirstPage, MainPage, ThirdPage, SearchResultPage, BookingPage):
             frame = F(window, self)
             self.frames[F] = frame
             frame.grid(row=0, column = 0, sticky='nsew')

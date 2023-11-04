@@ -1,86 +1,75 @@
-from controller import GuestController
 import tkinter as tk
-from tkinter import Tk, Label, Button, Entry, Listbox, Scrollbar, Frame, Toplevel, messagebox
+from tkinter import ttk
 
-class MovieSearchApp:
-    def __init__(self, root, guest_controller):
-        self.guest_controller = guest_controller
-        self.root = root
-        self.root.title("Movie Search")
-        
-        self.search_entry = tk.Entry(root)
-        self.search_entry.pack()
+# 创建主窗口
+root = tk.Tk()
+root.title("Movie Booking")
 
-        self.search_button = tk.Button(root, text="Search", command=self.search_movies)
-        self.search_button.pack()
+# 从数据库导入数据
+movies = {}
 
-    def search_movies(self):
-        search_term = self.search_entry.get()
+current_movie = "Movie 1"  # 当前选择的电影
+current_index = 0  # 当前日期索引
 
-        if search_term:
-            result = self.guest_controller.view_movie_details(search_term)
-            if isinstance(result, list):
-                messagebox.showinfo("Search Result", "\n".join(result))
-            else:
-                messagebox.showinfo("Search Result", result)
-        else:
-            messagebox.showwarning("Warning", "Please enter a search term.")
+# 更新显示的日期场次
+def update_sessions(date_sessions):
+    # 清空当前的场次
+    for widget in session_frame.winfo_children():
+        widget.destroy()
+    
+    # 加载新的场次信息
+    for session in date_sessions:
+        hall, time = session
+        session_label = tk.Label(session_frame, text=f"{hall}: {time}")
+        session_label.pack()
 
-    def create_registration_form(self):
-        # Create a new window for the registration form
-        self.registration_window = tk.Toplevel(self.root)
-        self.registration_window.title("Register")
-        
-        # Create and pack the registration form elements
-        tk.Label(self.registration_window, text="Username").pack()
-        self.username_entry = tk.Entry(self.registration_window)
-        self.username_entry.pack()
+# 改变日期的函数
+def change_date(delta):
+    global current_index
+    current_index += delta
+    
+    # 循环日期
+    if current_index >= len(movies[current_movie]):
+        current_index = 0
+    elif current_index < 0:
+        current_index = len(movies[current_movie]) - 1
 
-        tk.Label(self.registration_window, text="Password").pack()
-        self.password_entry = tk.Entry(self.registration_window, show="*")
-        self.password_entry.pack()
+    date, sessions = movies[current_movie][current_index]
+    date_label.config(text=f"{current_movie} {date}")
+    update_sessions(sessions)
 
-        tk.Label(self.registration_window, text="Name").pack()
-        self.name_entry = tk.Entry(self.registration_window)
-        self.name_entry.pack()
+# 创建页面上方的标签
+header_label = tk.Label(root, text="Make a Booking", font=("Arial", 24))
+header_label.pack(side="top", fill="x", pady=10)
+# 创建 电影的详细信息的框架 显示电影的详细信息
+header_label = tk.Label(root, text="movie1", font=("Arial", 20))
+header_label.pack(side="top", fill="x", pady=20)
 
-        tk.Label(self.registration_window, text="Address").pack()
-        self.address_entry = tk.Entry(self.registration_window)
-        self.address_entry.pack()
+# 创建日期和场次的框架
+date_session_frame = tk.Frame(root)
+date_session_frame.pack(fill="both", expand=True)
 
-        tk.Label(self.registration_window, text="Email").pack()
-        self.email_entry = tk.Entry(self.registration_window)
-        self.email_entry.pack()
+# 日期标签
+date_label = tk.Label(date_session_frame, text="", font=("Arial", 18))
+date_label.pack(side="top", pady=5)
 
-        tk.Label(self.registration_window, text="Phone").pack()
-        self.phone_entry = tk.Entry(self.registration_window)
-        self.phone_entry.pack()
+# 场次的框架
+session_frame = tk.Frame(date_session_frame)
+session_frame.pack(fill="both", expand=True)
 
-        # Create and pack the submit button
-        submit_button = tk.Button(self.registration_window, text="Register", command=self.submit_registration)
-        submit_button.pack()
+# 左右按钮
+left_button = tk.Button(date_session_frame, text="<", command=lambda: change_date(-1))
+left_button.pack(side="left", fill="y")
 
-    def submit_registration(self):
-        # Get the values from the entry widgets
-        username = self.username_entry.get()
-        password = self.password_entry.get()
-        name = self.name_entry.get()
-        address = self.address_entry.get()
-        email = self.email_entry.get()
-        phone = self.phone_entry.get()
-        
-        # Call the register_guest method from the controller
-        registration_result = self.guest_controller.register_guest(username, password, name, address, email, phone)
-        
-        # Show the result in a message box
-        messagebox.showinfo("Registration Result", registration_result)
-        
-        # Close the registration window if registration was successful
-        if registration_result == "Registration successful!":
-            self.registration_window.destroy()
-            
-            
-if __name__ == "__main__":
-    root = Tk()
-    app = MovieSearchApp(root, GuestController())
-    root.mainloop()
+right_button = tk.Button(date_session_frame, text=">", command=lambda: change_date(1))
+right_button.pack(side="right", fill="y")
+
+# 创建返回按钮
+back_button = tk.Button(root, text="Back")
+back_button.pack(side="bottom", fill="x", pady=10)
+
+# 初始化场次显示
+change_date(0)
+
+# 运行主循环
+root.mainloop()

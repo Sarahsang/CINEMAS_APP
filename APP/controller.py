@@ -8,24 +8,10 @@ class GuestController:
         self.guest = Guest()
         # self.Movie = movie()
 
-    def search_movies(self, title=None, lang=None, genre=None, rDate=None):
-        print(f"search_movies in controller is called with title={title}, lang={lang}, genre={genre}, rDate={rDate}")
-        movies = []
-        if title:
-            movies = self.general.search_movie_by_title(title)
-        elif lang:
-            movies = self.general.search_movie_by_lang(lang)
-        elif genre:
-            movies = self.general.search_movie_by_genre(genre)
-        elif rDate:
-            movies = self.general.search_movie_by_date(rDate)
-        print(f"search_movies returning: {movies}")
-        return movies
-
-    def view_movie_details(self, title=None, lang=None, genre=None, rDate=None):
+    def view_movie_details(self, search_term: str):
         try:
-            print(f"view_movie_details is called with title={title}, lang={lang}, genre={genre}, rDate={rDate}")
-            movies = self.search_movies(title, lang, genre, rDate)
+            print(f"view_movie_details is called with search_term={search_term}")
+            movies = self.general.search_movie_by_search_term(search_term)
             print(f"view_movie_details found: {movies}")
 
             if not movies:
@@ -196,7 +182,7 @@ class UserController:
     
     
 controller = GuestController()
-result = controller.search_movies(title="the")
+result = controller.general.search_movie_by_search_term(search_term="the")
 print(result)
 print("Before calling view_movie_details")
 a = controller.view_movie_details("the")
