@@ -9,36 +9,63 @@ db = Database('localhost', 'root', 'root', 'online_booking_system_dbase')
 
 class General(ABC):
     def __init__(self):
-        self.conn = db.get_connection()
-        self.cursor = self.conn.cursor(dictionary=True)
-    
-    #same for all users
+        self.db = db 
+
+    # same for all users
     def search_movie_by_title(self, title: str) -> List['Movie']:
-        query = "SELECT * FROM Movie WHERE title LIKE %s"
-        self.cursor.execute(query, ('%' + title + '%',))
-        movies = self.cursor.fetchall()
-        return [Movie(**movie) for movie in movies]
+        with closing(self.db.get_connection()) as conn:
+            with conn.cursor(dictionary=True) as cursor:
+                query = "SELECT * FROM Movie WHERE title LIKE %s"
+                try:
+                    cursor.execute(query, ('%' + title + '%',))
+                    movies = cursor.fetchall()
+                    # movie_objects = [Movie(**{k: v for k, v in movie.items() if k != 'movie_id'}) for movie in movies]
+                    # for movie in movie_objects:
+                    #     print(movie)  # 应该调用 __str__ 方法
+                    print(movies)
+                except Exception as e:
+                    print(f"An error occurred: {e}")
+                return [Movie(**{k: v for k, v in movie.items() if k != 'movie_id'}) for movie in movies]
 
     def search_movie_by_lang(self, lang: str) -> List['Movie']:
-        query = "SELECT * FROM Movie WHERE lang = %s"
-        self.cursor.execute(query, (lang,))
-        movies = self.cursor.fetchall()
-        return [Movie(**movie) for movie in movies]
+        with closing(self.db.get_connection()) as conn:
+            with conn.cursor(dictionary=True) as cursor:
+                query = "SELECT * FROM Movie WHERE lang = %s"
+                try:
+                    cursor.execute(query, (lang,))
+                    movies = cursor.fetchall()
+                    print(movies)
+                except Exception as e:
+                    print(f"An error occurred: {e}")
+                return [Movie(**{k: v for k, v in movie.items() if k != 'movie_id'}) for movie in movies]
 
     def search_movie_by_genre(self, genre: str) -> List['Movie']:
-        query = "SELECT * FROM Movie WHERE genre = %s"
-        self.cursor.execute(query, (genre,))
-        movies = self.cursor.fetchall()
-        return [Movie(**movie) for movie in movies]
+        with closing(self.db.get_connection()) as conn:
+            with conn.cursor(dictionary=True) as cursor:
+                query = "SELECT * FROM Movie WHERE genre = %s"
+                try:
+                    cursor.execute(query, (genre,))
+                    movies = cursor.fetchall()
+                    print(movies)
+                except Exception as e:
+                    print(f"An error occurred: {e}")
+                return [Movie(**{k: v for k, v in movie.items() if k != 'movie_id'}) for movie in movies]
 
     def search_movie_by_date(self, rDate: str) -> List['Movie']:
-        query = "SELECT * FROM Movie WHERE rDate = %s"
-        self.cursor.execute(query, (rDate,))
-        movies = self.cursor.fetchall()
-        return [Movie(**movie) for movie in movies]
+        with closing(self.db.get_connection()) as conn:
+            with conn.cursor(dictionary=True) as cursor:
+                query = "SELECT * FROM Movie WHERE rDate = %s"
+                try:
+                    cursor.execute(query, (rDate,))
+                    movies = cursor.fetchall()
+                    print(movies)
+                except Exception as e:
+                    print(f"An error occurred: {e}")
+                return [Movie(**{k: v for k, v in movie.items() if k != 'movie_id'}) for movie in movies]
 
-    def view_movie_details(self, movie: 'Movie') -> None:
-        return str(movie)
+
+    def get_movie_details(self, movie) -> str:
+        return f"Movie({movie.title}, {movie.genre}, {movie.rDate})"
 
 class Guest(General):
     def register(self, username: str, password: str, name: str, address: str, email: str, phone: str) -> str:
@@ -174,7 +201,7 @@ class Admin(User):
     def __init__(self, username: str, password: str, fname: str, lname: str, address: str, email: str, phone: str):
         super().__init__(username, password, fname, lname, address, email, phone)
 
-    def add_movie(self, title: str, lang: str, genre: str, rDate: datetime, duration: int, country: str, description: str) -> str:
+    def add_movie(self, title: str, lang: str, genre: str, rDate: date, duration: int, country: str, description: str) -> str:
         try:
             query = "INSERT INTO Movie (title, lang, genre, rDate, duration, country, description) VALUES (%s, %s, %s, %s, %s, %s, %s)"
             self.cursor.execute(query, (title, lang, genre, rDate, duration, country, description))
@@ -367,7 +394,7 @@ class Customer(User):
             return f"An error occurred while cancelling the booking: {str(e)}"
         
 class Movie:
-    def __init__(self, title: str, lang: str, genre: str, rDate: datetime, duration: int, country: str, screeningList: List['Screening'], description: str):
+    def __init__(self, title: str, lang: str, genre: str, rDate: date, duration: int, country: str, description: str, screeningList: List['Screening'] = []):
         self.__title = title
         self.__lang = lang
         self.__genre = genre
@@ -461,8 +488,9 @@ class Movie:
     def get_screenings(self) -> List['Screening']:
         return self.__screeningList
     
-    def __repr__(self):
-        return f"Movie({self.title}, {self.genre}, {self.rDate})"
+    def __str__(self):
+        print("movie str called")
+        return f"{self.title} ({self.rDate}), {self.genre}, {self.duration} mins"
 
 class Screening:
     def __init__(self, screening_date: datetime, start_time: datetime, end_time: datetime, hall: 'CinemaHall'):
@@ -902,3 +930,25 @@ class ScreeningSeat:
             db.execute("UPDATE CinemaHallSeat SET is_reserved = FALSE WHERE seat_id = %s", (self.cinema_hall_seat.seat_id,))
         else:
             raise ValueError("Seat is not reserved")
+        
+        
+general = General()
+
+# test search
+search_result = general.search_movie_by_title('the')
+print(search_result)
+for movie in search_result:
+    print(general.get_movie_details(movie))
+
+# movie = Movie(
+#     title='The Shawshank Redemption',
+#     lang='English',
+#     genre='Drama',
+#     rDate=date(1994, 9, 23),
+#     duration=142,
+#     country='USA',
+#     description='Two imprisoned men bond over a number of years, finding solace and eventual redemption through acts of common decency.',
+#     screeningList=[]
+# )
+
+# print(str(movie))  # 这应该会调用 __str__ 方法并打印输出

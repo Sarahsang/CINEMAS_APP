@@ -8,7 +8,7 @@ CREATE TABLE Movie (
     title VARCHAR(255) NOT NULL,
     lang VARCHAR(100) NOT NULL,
     genre VARCHAR(100) NOT NULL,
-    rDate DATETIME NOT NULL,
+    rDate DATE NOT NULL,
     duration INT NOT NULL,
     country VARCHAR(100),
     description TEXT,
