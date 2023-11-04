@@ -1,4 +1,6 @@
-from models import General, Guest, Movie
+from models import General, Guest, Person, User, Movie
+from db import Database
+from contextlib import closing
 
 class GuestController:
     def __init__(self):
@@ -21,19 +23,55 @@ class GuestController:
         return movies
 
     def view_movie_details(self, title=None, lang=None, genre=None, rDate=None):
-        print(f"view_movie_details is called with title={title}, lang={lang}, genre={genre}, rDate={rDate}")
-        movies = self.search_movies(title, lang, genre, rDate)
-        print(f"view_movie_details found: {movies}")
-        if movies:
-            for movie in movies:
-                print(str(movie))
-            return [str(movie) for movie in movies]
-        else:
-            return "No movies found with the specified criteria."
-        
+        try:
+            print(f"view_movie_details is called with title={title}, lang={lang}, genre={genre}, rDate={rDate}")
+            movies = self.search_movies(title, lang, genre, rDate)
+            print(f"view_movie_details found: {movies}")
+
+            if not movies:
+                print("No movies found with the specified criteria.")
+                return "No movies found with the specified criteria."
+
+            movie_details = [str(movie) for movie in movies]
+            print(f"Returning from view_movie_details: {movie_details}")
+            return movie_details
+        except Exception as e:
+            print(f"An error occurred in view_movie_details: {e}")
+            # Optionally re-raise the exception if you want it to be handled by an outer try/except block or to crash the program
+            raise
+    
     def register_guest(self, username, password, name, address, email, phone):
         return self.guest.register(username, password, name, address, email, phone)
 
+class UserController:
+    def __init__(self):
+        self.current_user = None  # 当前用户的用户对象
+        self.is_logged_in = False  # 登录状态
+
+    def login(self, username, password):
+        # 验证用户名和密码
+        user = User(username=username, password=password)  # 这里您可能需要传递一个连接或其他必需的参数来创建User对象
+        login_result = user.login(username, password)
+        if login_result == "Login successful!":
+            self.current_user = user
+            self.is_logged_in = True
+            # 加载用户的其他详细信息
+            self.load_user_details(username)
+            return True
+        else:
+            return False
+
+    def load_user_details(self, username):
+        # 根据用户名加载用户的其他详细信息
+        # 这可能会涉及到从数据库中查询并更新self.current_user对象的属性
+        pass
+
+    def logout(self):
+        # 处理用户登出逻辑
+        if self.current_user:
+            self.current_user.logout()
+            self.current_user = None
+            self.is_logged_in = False
 
 
 
@@ -74,9 +112,11 @@ class GuestController:
 
 
 
-    def close_database(self):
-        # close the database connection using the close_connection method of the Database class
-        self.db_instance.close_connection()
+
+
+    # def close_database(self):
+    #     # close the database connection using the close_connection method of the Database class
+    #     self.db_instance.close_connection()
 
     def search_movie_by_title(self, title):
         # Logic to search for movie by title
@@ -94,9 +134,9 @@ class GuestController:
         # Logic to search for movie by release date
         pass
 
-    def view_movie_details(self, movie_id):
-        # Logic to view details for a specific movie
-        pass
+    # def view_movie_details(self, movie_id):
+    #     # Logic to view details for a specific movie
+    #     pass
 
     def guest_register(self, username, password, name, address, email, phone):
         # Logic for guest to register
@@ -158,3 +198,8 @@ class GuestController:
 controller = GuestController()
 result = controller.search_movies(title="the")
 print(result)
+print("Before calling view_movie_details")
+a = controller.view_movie_details("the")
+print("After calling view_movie_details")
+print(a)
+

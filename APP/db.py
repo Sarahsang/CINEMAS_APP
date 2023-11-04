@@ -1,28 +1,26 @@
 import mysql.connector
 from mysql.connector import Error
+from mysql.connector import pooling
 
 class Database:
-
     def __init__(self, host: str, user: str, password: str, database: str):
-        self.connection = None
         try:
-            self.connection = mysql.connector.connect(
+            self.connection_pool = pooling.MySQLConnectionPool(
+                pool_name="mypool",
+                pool_size=5,
+                pool_reset_session=True,
                 host=host,
                 user=user,
-                passwd=password,
+                password=password,
                 database=database
             )
-            if self.connection.is_connected():
-                print("MySQL Database connection successful")
+            print("MySQL Connection pool is created")
         except Error as e:
             print(f"Error: '{e}'")
-            self.connection = None
 
     def get_connection(self):
-        return self.connection
-    
-    def close_connection(self):
-        if self.connection and self.connection.is_connected():
-            self.connection.close()
-            print("MySQL Database connection closed")
+        return self.connection_pool.get_connection()
 
+    def close_connection(self, conn):
+        if conn:
+            conn.close()

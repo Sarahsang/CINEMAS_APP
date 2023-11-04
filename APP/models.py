@@ -19,9 +19,9 @@ class General(ABC):
                 try:
                     cursor.execute(query, ('%' + title + '%',))
                     movies = cursor.fetchall()
-                    # movie_objects = [Movie(**{k: v for k, v in movie.items() if k != 'movie_id'}) for movie in movies]
-                    # for movie in movie_objects:
-                    #     print(movie)  # 应该调用 __str__ 方法
+                    movie_objects = [Movie(**{k: v for k, v in movie.items() if k != 'movie_id'}) for movie in movies]
+                    for movie in movie_objects:
+                        print(movie)  # 应该调用 __str__ 方法
                     print(movies)
                 except Exception as e:
                     print(f"An error occurred: {e}")
@@ -69,24 +69,29 @@ class General(ABC):
 
 class Guest(General):
     def register(self, username: str, password: str, name: str, address: str, email: str, phone: str) -> str:
-        # Check if username or email already exists
-        query = "SELECT * FROM User WHERE username = %s OR email = %s"
-        self.cursor.execute(query, (username, email))
-        result = self.cursor.fetchone()
-        
-        if result:
-            return "Username or email already exists. Please choose a different one."
-        else:
-            # If username and email are unique, proceed to create a new user
-            insert_query = "INSERT INTO User (username, password, name, address, email, phone, user_type) VALUES (%s, %s, %s, %s, %s, %s, %s)"
-            self.cursor.execute(insert_query, (username, password, name, address, email, phone, 'Customer'))
-            self.conn.commit()
-            return "Registration successful!"
+        # 使用 with 语句来确保正确管理数据库连接和游标
+        with closing(self.db.get_connection()) as conn:
+            with conn.cursor(dictionary=True) as cursor:
+                # Check if username or email already exists
+                query = "SELECT * FROM User WHERE username = %s OR email = %s"
+                cursor.execute(query, (username, email))
+                result = cursor.fetchone()
+                
+                if result:
+                    return "Username or email already exists. Please choose a different one."
+                else:
+                    # If username and email are unique, proceed to create a new user
+                    insert_query = "INSERT INTO User (username, password, name, address, email, phone, user_type) VALUES (%s, %s, %s, %s, %s, %s, %s)"
+                    cursor.execute(insert_query, (username, password, name, address, email, phone, 'Customer'))
+                    conn.commit()
+                    return "Registration successful!"
 
-class Person(ABC):
+
+class Person(General):
 
     @abstractmethod
     def __init__(self, name: str, address: str, email: str, phone: str):
+        super().__init__()
         self._name = name
         self._address = address
         self._email = email
@@ -133,11 +138,8 @@ class Person(ABC):
         self._phone = value
 
 class User(Person):
-
-    def __init__(self, username: str, password: str, name: str, address: str, email: str, phone: str):
-        super().__init__(name, address, email, phone)
-        self.conn = db.get_connection()
-        self.cursor = self.conn.cursor(dictionary=True)
+    def __init__(self, username: str, password: str):
+        super().__init__(name=None, address=None, email=None, phone=None)
         self._username = username
         self._password = password
         self.is_logged_in = False
@@ -158,18 +160,56 @@ class User(Person):
     def password(self, value: str):
         self._password = value
 
+    @property
+    def name(self) -> str:
+        return self._name
+
+    @name.setter
+    def name(self, value: str):
+        self._name = value
+
+    @property
+    def address(self) -> str:
+        return self._address
+
+    @address.setter
+    def address(self, value: str):
+        self._address = value
+
+    @property
+    def email(self) -> str:
+        return self._email
+
+    @email.setter
+    def email(self, value: str):
+        self._email = value
+
+    @property
+    def phone(self) -> str:
+        return self._phone
+
+    @phone.setter
+    def phone(self, value: str):
+        self._phone = value
+        
+    # 在 User 类的 login 方法中
     def login(self, username: str, password: str) -> str:
         try:
-            query = "SELECT * FROM User WHERE username = %s AND password = %s"
-            self.cursor.execute(query, (username, password))
-            result = self.cursor.fetchone()
-            if result:
-                self.is_logged_in = True
-                return "Login successful!"
-            else:
-                return "Incorrect username or password."
+            with closing(db.get_connection()) as conn:
+                with conn.cursor(dictionary=True) as cursor:
+                    query = "SELECT * FROM User WHERE username = %s AND password = %s"
+                    cursor.execute(query, (username, password))
+                    result = cursor.fetchone()
+                    print(f"Debug: result={result}")  # 添加的调试打印
+                    if result:
+                        self.is_logged_in = True
+                        return "Login successful!"
+                    else:
+                        return "Incorrect username or password."
         except Exception as e:
+            print(f"Debug: An exception occurred during login: {e}")  # 添加的调试打印
             return f"An error occurred during login: {str(e)}"
+
 
     def logout(self) -> str:
         try:
@@ -196,7 +236,26 @@ class User(Person):
             return "Password reset successfully!"
         except Exception as e:
             return f"An error occurred during password reset: {str(e)}"
-
+        
+    def load_details(self):
+        try:
+            with closing(db.get_connection()) as conn:
+                with conn.cursor(dictionary=True) as cursor:
+                    query = "SELECT name, address, email, phone FROM User WHERE username = %s"
+                    cursor.execute(query, (self._username,))
+                    result = cursor.fetchone()
+                    if result:
+                        # 直接设置属性
+                        self._name = result['name']
+                        self._address = result['address']
+                        self._email = result['email']
+                        self._phone = result['phone']
+                        return "User details loaded successfully!"
+                    else:
+                        return "No user details found."
+        except Exception as e:
+            return f"An error occurred while loading user details: {str(e)}"
+        
 class Admin(User):
     def __init__(self, username: str, password: str, fname: str, lname: str, address: str, email: str, phone: str):
         super().__init__(username, password, fname, lname, address, email, phone)
@@ -490,7 +549,7 @@ class Movie:
     
     def __str__(self):
         print("movie str called")
-        return f"{self.title} ({self.rDate}), {self.genre}, {self.duration} mins"
+        return f"{self.title}  ({self.rDate}) genre: {self.genre} duration: {self.duration} mins"
 
 class Screening:
     def __init__(self, screening_date: datetime, start_time: datetime, end_time: datetime, hall: 'CinemaHall'):
