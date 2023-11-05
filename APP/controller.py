@@ -1,11 +1,13 @@
-from models import General, Guest, Person, User, Movie
+from models import General, Guest, Person, User, Movie, Customer
 from db import Database
 from contextlib import closing
 
+
 class GuestController:
-    def __init__(self):
+    def __init__(self, db_connection):
         self.general = General()
         self.guest = Guest()
+        self.db = db_connection
         # self.Movie = movie()
 
     def view_movie_details(self, search_term: str):
@@ -25,12 +27,13 @@ class GuestController:
             print(f"An error occurred in view_movie_details: {e}")
             # Optionally re-raise the exception if you want it to be handled by an outer try/except block or to crash the program
             raise
-    
+        
     def register_guest(self, username, password, name, address, email, phone):
         return self.guest.register(username, password, name, address, email, phone)
 
 class UserController:
-    def __init__(self):
+    def __init__(self, db_connection):
+        self.db = db_connection
         self.current_user = None  # 当前用户的用户对象
         self.is_logged_in = False  # 登录状态
 
@@ -59,10 +62,98 @@ class UserController:
             self.current_user = None
             self.is_logged_in = False
 
+class CustomerController(UserController):
+    def __init__(self, db_connection):
+        self.db = db_connection
+        self.general = General()
+        super().__init__(db_connection)
+        # self.customer = Customer()
+        
+    def view_movie_details(self, search_term: str):
+        try:
+            print(f"view_movie_details is called with search_term={search_term}")
+            movies = self.general.search_movie_by_search_term(search_term)
+            print(f"view_movie_details found: {movies}")
+
+            if not movies:
+                print("No movies found with the specified criteria.")
+                return "No movies found with the specified criteria."
+
+            movie_details = [str(movie) for movie in movies]
+            print(f"Returning from view_movie_details: {movie_details}")
+            return movie_details
+        except Exception as e:
+            print(f"An error occurred in view_movie_details: {e}")
+            # Optionally re-raise the exception if you want it to be handled by an outer try/except block or to crash the program
+            raise
+        
+    def make_booking(self, screening_id, number_of_seats, seat_ids):
+        if not self.is_logged_in or not isinstance(self.current_user, Customer):
+            return "User must be logged in and must be a Customer to make a booking."
+
+        return self.current_user.make_booking(screening_id, number_of_seats, seat_ids)
+
+    def get_movie_id_by_title(self, title):
+        if self.is_logged_in and self.current_user:
+            return self.current_user.get_movie_id_by_title(title)
+        else:
+            print("User is not logged in or current_user is not set.")
+            return None
 
 
+    def get_movie_sessions(self, movie_id):
+            with closing(self.db.get_connection()) as conn:
+                with conn.cursor(dictionary=True) as cursor:
+                    query = """
+                    SELECT 
+                        Movie.title, 
+                        Screening.screening_date, 
+                        CinemaHall.name AS hall_name, 
+                        Screening.start_time, 
+                        Screening.end_time,
+                        Screening.screening_id
+                    FROM 
+                        Screening
+                    JOIN Movie ON Screening.movie_id = Movie.movie_id
+                    JOIN CinemaHall ON Screening.hall_id = CinemaHall.hall_id
+                    WHERE 
+                        Screening.movie_id = %s;
+                    """
+                    try:
+                        cursor.execute(query, (movie_id,))
+                        sessions = cursor.fetchall()
+                        return sessions
+                    except Exception as e:
+                        print(f"An error occurred while fetching movie sessions: {e}")
+                        return []
 
-
+    def get_hall_seats(self, hall_name):
+        with closing(self.db.get_connection()) as conn:
+            with conn.cursor(dictionary=True) as cursor:
+                query = """
+                SELECT 
+                    seat_id, 
+                    seat_number, 
+                    seat_column, 
+                    seat_type, 
+                    is_reserved, 
+                    seat_price
+                FROM 
+                    CinemaHallSeat
+                JOIN CinemaHall ON CinemaHallSeat.hall_id = CinemaHall.hall_id
+                WHERE 
+                    CinemaHall.name = %s
+                ORDER BY 
+                    seat_number, 
+                    seat_column;
+                """
+                try:
+                    cursor.execute(query, (hall_name,))
+                    seats = cursor.fetchall()
+                    return seats
+                except Exception as e:
+                    print(f"An error occurred while fetching hall seats: {e}")
+                    return []
 
 
 
@@ -104,37 +195,7 @@ class UserController:
     #     # close the database connection using the close_connection method of the Database class
     #     self.db_instance.close_connection()
 
-    def search_movie_by_title(self, title):
-        # Logic to search for movie by title
-        pass
 
-    def search_movie_by_lang(self, lang):
-        # Logic to search for movie by language
-        pass
-
-    def search_movie_by_genre(self, genre):
-        # Logic to search for movie by genre
-        pass
-
-    def search_movie_by_date(self, rDate):
-        # Logic to search for movie by release date
-        pass
-
-    # def view_movie_details(self, movie_id):
-    #     # Logic to view details for a specific movie
-    #     pass
-
-    def guest_register(self, username, password, name, address, email, phone):
-        # Logic for guest to register
-        pass
-
-    def user_login(self, username, password):
-        # Logic for user login
-        pass
-
-    def user_logout(self, user_id):
-        # Logic for user logout
-        pass
 
     def reset_password(self, user_id, old_password, new_password):
         # Logic for resetting password
@@ -181,11 +242,11 @@ class UserController:
         pass
     
     
-controller = GuestController()
-result = controller.general.search_movie_by_search_term(search_term="the")
-print(result)
-print("Before calling view_movie_details")
-a = controller.view_movie_details("the")
-print("After calling view_movie_details")
-print(a)
+# controller = GuestController()
+# result = controller.general.search_movie_by_search_term(search_term="the")
+# print(result)
+# print("Before calling view_movie_details")
+# a = controller.view_movie_details("the")
+# print("After calling view_movie_details")
+# print(a)
 

@@ -131,7 +131,7 @@ INSERT INTO User (username, password, name, address, email, phone, user_type) VA
 ('admin', 'admin123', 'Admin User', '123 Main St, Lincoln', 'admin@lincolncinemas.com', '123-456-7890', 'Admin'),
 ('frontdesk', 'frontdesk123', 'Front Desk Staff', '123 Main St, Lincoln', 'frontdesk@lincolncinemas.com', '123-456-7891', 'FrontDeskStaff'),
 ('john_doe', 'john123', 'John Doe', '456 Oak St, Lincoln', 'john.doe@email.com', '123-456-7892', 'Customer'),
-('Sarah', 'sarah123', 'Sarah Green', '', 'sarahgreen@email.com', '', 'Customer');
+('mia', 'mia', 'Sarah Green', '', 'sarahgreen@email.com', '', 'Customer');
 
 -- Insert into Screening
 -- Assuming each movie has multiple screenings across different halls

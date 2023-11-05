@@ -28,10 +28,11 @@ class General(ABC):
                     print(movies)
                 except Exception as e:
                     print(f"An error occurred: {e}")
-                return [Movie(**{k: v for k, v in movie.items() if k != 'movie_id'}) for movie in movies]
+                return [Movie(**movie) for movie in movies]
 
     def get_movie_details(self, movie) -> str:
-        return f"Movie in model({movie.title}, {movie.genre}, {movie.rDate})"
+        return f"{movie.title}  ({movie.rDate}) genre: {movie.genre} duration: {movie.duration} mins country: {movie.country} description: {movie.description}"
+
 
 class Guest(General):
     def register(self, username: str, password: str, name: str, address: str, email: str, phone: str) -> str:
@@ -210,7 +211,6 @@ class User(Person):
                     cursor.execute(query, (self._username,))
                     result = cursor.fetchone()
                     if result:
-                        # 直接设置属性
                         self._name = result['name']
                         self._address = result['address']
                         self._email = result['email']
@@ -220,6 +220,21 @@ class User(Person):
                         return "No user details found."
         except Exception as e:
             return f"An error occurred while loading user details: {str(e)}"
+        
+    def get_movie_id_by_title(self, title):
+        with closing(db.get_connection()) as conn: 
+            with conn.cursor(dictionary=True) as cursor:
+                query = "SELECT movie_id FROM Movie WHERE title = %s"
+                try:
+                    cursor.execute(query, (title,))
+                    result = cursor.fetchone()
+                    if result:
+                        return result['movie_id']
+                    else:
+                        return None
+                except Exception as e:
+                    print(f"An error occurred while fetching movie id: {e}")
+                    return None
         
 class Admin(User):
     def __init__(self, username: str, password: str, fname: str, lname: str, address: str, email: str, phone: str):
@@ -418,7 +433,8 @@ class Customer(User):
             return f"An error occurred while cancelling the booking: {str(e)}"
         
 class Movie:
-    def __init__(self, title: str, lang: str, genre: str, rDate: date, duration: int, country: str, description: str, screeningList: List['Screening'] = []):
+    def __init__(self, movie_id: int, title: str, lang: str, genre: str, rDate: date, duration: int, country: str, description: str, screeningList: List['Screening'] = []):
+        self.__movie_id = movie_id
         self.__title = title
         self.__lang = lang
         self.__genre = genre
@@ -428,6 +444,9 @@ class Movie:
         self.__screeningList = screeningList
         self.__description = description
 
+    @property
+    def movie_id(self) -> int:
+        return self.__movie_id
     @property
     def title(self):
         return self.__title
@@ -514,7 +533,7 @@ class Movie:
     
     def __str__(self):
         print("movie str called")
-        return f"{self.title}  ({self.rDate}) genre: {self.genre} duration: {self.duration} mins"
+        return f"{self.movie_id} {self.title}  ({self.rDate}) genre: {self.genre} duration: {self.duration} mins"
 
 class Screening:
     def __init__(self, screening_date: datetime, start_time: datetime, end_time: datetime, hall: 'CinemaHall'):
@@ -960,9 +979,9 @@ general = General()
 
 # test search
 search_result = general.search_movie_by_search_term('the')
-print(search_result)
-for movie in search_result:
-    print(general.get_movie_details(movie))
+# print(search_result)
+# for movie in search_result:
+#     print(general.get_movie_details(movie))
 
 # movie = Movie(
 #     title='The Shawshank Redemption',
@@ -975,4 +994,3 @@ for movie in search_result:
 #     screeningList=[]
 # )
 
-# print(str(movie))  # 这应该会调用 __str__ 方法并打印输出

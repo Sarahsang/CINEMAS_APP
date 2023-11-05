@@ -3,15 +3,23 @@ from tkinter import ttk
 from tkinter import messagebox
 from PIL import Image, ImageTk
 from controller import GuestController
-from controller import UserController
+from controller import UserController, CustomerController
+from models import General
+import re
+from db import Database
+
+db = Database('localhost', 'root', 'root', 'online_booking_system_dbase')
+
+customer_controller = CustomerController(db)
+
 
 class FirstPage(tk.Frame):
-    def __init__(self,parent, controller):
+    def __init__(self, parent, controller, guest_controller, user_controller, customer_controller):
         tk.Frame.__init__(self, parent)
         self.controller = controller
-        self.guest_controller = GuestController()
-        self.user_controller = UserController()
-        print("FirstPage initialized")
+        self.guest_controller = guest_controller
+        self.user_controller = user_controller
+        self.customer_controller = customer_controller
         
         load = Image.open("APP\imag1.jpg")
         photo = ImageTk.PhotoImage(load)
@@ -50,13 +58,12 @@ class FirstPage(tk.Frame):
 
         if search_term:
             result = self.guest_controller.view_movie_details(search_term)
-            print("Result:", result)  # 这会打印出 result 变量的内容
+            print("Result:", result)  
 
             if isinstance(result, list):
                 print("search_movies in view is called")
-                # messagebox.showinfo("Search Result", "\n".join(result))  # 删除这行
-                self.controller.show_frame(SearchResultPage)  # 切换到搜索结果页面
-                self.controller.frames[SearchResultPage].display_results(result, from_page="FirstPage")  # 显示结果
+                self.controller.show_frame(SearchResultPage)
+                self.controller.frames[SearchResultPage].display_results(result, from_page="FirstPage")
             else:
                 messagebox.showinfo("Search Result", result)
         else:
@@ -138,19 +145,15 @@ class FirstPage(tk.Frame):
             if not all([username, password, confirm_password, name, address, email, phone]):
                 messagebox.showinfo("Error", "Please complete all fields")
                 return
-
-            # 确认密码是否匹配
             if password != confirm_password:
                 messagebox.showinfo("Error", "Passwords do not match")
                 return
 
-            # 使用controller注册用户
             registration_result = self.guest_controller.register_guest(username, password, name, address, email, phone)
-            
-            # 根据注册结果显示消息
+
             if registration_result == "Registration successful!":
                 messagebox.showinfo("Welcome", "Successfully Registered")
-                window.destroy()  # 关闭注册窗口
+                window.destroy() 
             else:
                 messagebox.showinfo("Error", registration_result) 
 
@@ -161,11 +164,12 @@ class FirstPage(tk.Frame):
         window.mainloop()
 
 class MainPage(tk.Frame):
-    def __init__(self,parent, controller):
+    def __init__(self, parent, controller, guest_controller, user_controller, customer_controller):
         tk.Frame.__init__(self, parent)
         self.controller = controller
-        self.guest_controller = GuestController()
-        self.user_controller = UserController()
+        self.guest_controller = guest_controller
+        self.user_controller = user_controller
+        self.customer_controller = customer_controller
 
         load = Image.open("APP\imag1.jpg")
         photo = ImageTk.PhotoImage(load)
@@ -193,22 +197,25 @@ class MainPage(tk.Frame):
         search_term = self.search_entry.get()
 
         if search_term:
-            result = self.guest_controller.view_movie_details(search_term)
-            print("Result:", result)  # 这会打印出 result 变量的内容
+            result = self.customer_controller.view_movie_details(search_term)
+            print("Result:", result)  
 
             if isinstance(result, list):
                 print("search_movies in view is called")
-                # messagebox.showinfo("Search Result", "\n".join(result))  # 删除这行
-                self.controller.show_frame(SearchResultPage)  # 切换到搜索结果页面
-                self.controller.frames[SearchResultPage].display_results(result, from_page="MainPage")  # 显示结果
+                self.controller.show_frame(SearchResultPage)
+                self.controller.frames[SearchResultPage].display_results(result, from_page="MainPage")
             else:
                 messagebox.showinfo("Search Result", result)
         else:
             messagebox.showwarning("Warning", "Please enter a search term.")
             
 class ThirdPage(tk.Frame):
-    def __init__(self,parent, controller):
+    def __init__(self, parent, controller, guest_controller, user_controller, customer_controller):
         tk.Frame.__init__(self, parent)
+        self.controller = controller
+        self.guest_controller = guest_controller
+        self.user_controller = user_controller
+        self.customer_controller = customer_controller
 
         Label = tk.Label(self, text="Third Page", font=("Arial Bold", 30))
         Label.place(x=230, y=230)
@@ -220,10 +227,14 @@ class ThirdPage(tk.Frame):
         Button.place(x=100, y=450)
 
 class SearchResultPage(tk.Frame):
-    def __init__(self, parent, controller):
+    def __init__(self, parent, controller, guest_controller, user_controller, customer_controller):
         tk.Frame.__init__(self, parent)
         self.controller = controller
+        self.guest_controller = guest_controller
+        self.user_controller = user_controller
+        self.customer_controller = customer_controller
         self.from_page = None
+        self.movie_ids = []
         
         self.back_button = tk.Button(self, text="Back", font=("Arial",13), command=self.go_back)
         self.back_button.place(x=710, y=37)
@@ -248,114 +259,141 @@ class SearchResultPage(tk.Frame):
     def display_results(self, results, from_page):
         self.from_page = from_page
         self.results_listbox.delete(0, tk.END)
-        for result in results:
-            self.results_listbox.insert(tk.END, result)
+        self.movie_ids.clear()  
+        print(f"Results type: {type(results)}")  
+        if results:  
+            print(f"First result type: {type(results[0])}")  
+            print(f"First result content: {results}")  
+        for movie_detail in results:
+            movie_id_str, _, movie_info = movie_detail.partition(' ')  
+            movie_id = int(movie_id_str)  
+            self.results_listbox.insert(tk.END, movie_info)  
+            self.movie_ids.append(movie_id) 
+        print(f"movie_ids after search: {self.movie_ids}")
 
     def on_select(self, event):
-        # 事件处理器，当用户选择一个结果时调用
+
         widget = event.widget
-        index = int(widget.curselection()[0])  # 获取选中项的索引
-        value = widget.get(index)  # 获取选中项的值
+        selection = widget.curselection()
+        print(f"Selection: {selection}")
+        if selection:
+            index = int(selection[0])  
+            value = widget.get(index)  
+            print(f"on_Selected: {value}")
 
-        # 切换到 BookingPage，并传递选中的电影信息
-        if self.from_page == "FirstPage":
-            messagebox.showinfo("Action Required", "Please register or login to book a movie.")
-        elif self.from_page == "MainPage":
-            booking_page = self.controller.frames[BookingPage]
-            booking_page.get_movie_info(value)  # 需要在 BookingPage 中实现此方法
-            self.controller.show_frame(BookingPage)
-
-    def on_movie_selected(self, movie):
-        booking_page = self.controller.frame(BookingPage)
-        booking_page.set_movie_data(movie)
-        self.controller.show_frame(BookingPage)
-
+            if index < len(self.movie_ids):
+                movie_id = self.movie_ids[index]
+                try:
+                    movie_sessions = self.customer_controller.get_movie_sessions(movie_id)
+                    
+                    if self.from_page == "MainPage":
+                        booking_page = self.controller.frames[BookingPage]
+                        booking_page.set_movie_sessions(movie_sessions)
+                        self.controller.show_frame(BookingPage)
+                        
+                except Exception as e:
+                    print(f"An error occurred while fetching movie sessions: {e}")
+            else:
+                print(f"Error: index {index} is out of range.")
+        else:
+            print("No item selected.")
 
 class BookingPage(tk.Frame):
-    def __init__(self, parent, controller):
+    def __init__(self, parent, controller, guest_controller, user_controller, customer_controller):
         tk.Frame.__init__(self, parent)
         self.controller = controller
-        self.movies = {}  # 这里应该填充从数据库获取的电影数据
-        self.current_movie = None  # 当前选择的电影
-        self.current_index = 0  # 当前日期索引
 
-        # 页面布局代码...
+        # 页面标题
         self.header_label = tk.Label(self, text="Make a Booking", font=("Arial", 24))
         self.header_label.pack(side="top", fill="x", pady=10)
 
-        # 电影详细信息的标签
-        self.movie_detail_label = tk.Label(self, text="", font=("Arial", 20))
-        self.movie_detail_label.pack(side="top", fill="x", pady=20)
-                # 初始化电影信息
-        self.display_movie_details()
+        # 场次列表框
+        self.session_listbox = tk.Listbox(self, height=10, width=50, font=('Arial', 12))
+        self.session_listbox.pack(pady=20, padx=20, fill='both', expand=True)
 
-    def set_movie_data(self, movie):
-        print("Setting movie data:", movie)
-        self.movie = movie
-        self.display_movie_details()
-
-    def display_movie_details(self):
-        if hasattr(self, 'movie'):
-            print("Displaying movie details for:", self.movie.title)
-            details = (
-                f"Title: {self.movie.title}\n"
-                f"Language: {self.movie.lang}\n"
-                f"Genre: {self.movie.genre}\n"
-                f"Release Date: {self.movie.rDate}\n"
-                f"Duration: {self.movie.duration} mins\n"
-                f"Country: {self.movie.country}\n"
-                f"Description: {self.movie.description}"
-            )
-            self.movie_detail_label.config(text=details)
-        else:
-            print("No movie set to display")
-
-
-        # 日期和场次的框架
-        self.date_session_frame = tk.Frame(self)
-        self.date_session_frame.pack(fill="both", expand=True)
-
-        # 日期标签
-        self.date_label = tk.Label(self.date_session_frame, text="", font=("Arial", 18))
-        self.date_label.pack(side="top", pady=5)
-
-        # 场次的框架
-        self.session_frame = tk.Frame(self.date_session_frame)
-        self.session_frame.pack(fill="both", expand=True)
-
-        # 左右按钮
-        self.left_button = tk.Button(self.date_session_frame, text="<", command=lambda: self.change_date(-1))
-        self.left_button.pack(side="left", fill="y")
-
-        self.right_button = tk.Button(self.date_session_frame, text=">", command=lambda: self.change_date(1))
-        self.right_button.pack(side="right", fill="y")
+        # 预订按钮
+        self.book_button = tk.Button(self, text="Book Session", font=("Arial", 15), command=self.book_session)
+        self.book_button.pack(side="bottom", pady=20)
 
         # 返回按钮
-        self.back_button = tk.Button(self, text="Back", command=lambda: controller.show_frame(SearchResultPage))
-        self.back_button.pack(side="bottom", fill="x", pady=10)
+        self.back_button = tk.Button(self, text="Back", font=("Arial", 15), command=lambda: controller.show_frame(SearchResultPage))
+        self.back_button.pack(side="bottom", pady=10)
 
-    def set_movie_data(self, movie_data):
-        # 设置当前电影信息并更新显示
-        self.current_movie = movie_data['title']
-        self.movies[self.current_movie] = movie_data['sessions']  # 假设 sessions 是一个包含日期和场次信息的列表
-        self.change_date(0)  # 初始化显示
+    def set_movie_sessions(self, movie_sessions):
+        self.session_listbox.delete(0, tk.END)
+        for session in movie_sessions:
+            session_str = f"{session['screening_date']} - {session['start_time']} to {session['end_time']} in {session['hall_name']}"
+            self.session_listbox.insert(tk.END, session_str)
+
+    def book_session(self):
+        try:
+            selected_index = self.session_listbox.curselection()[0]
+            selected_session = self.session_listbox.get(selected_index)
+            hall_name = selected_session.split(' in ')[-1]
+            # 现在我们跳转到选择座位的页面，并传递大厅名称
+            select_seat_page = self.controller.frames[SelectSeatPage]
+            select_seat_page.display_seats(hall_name)
+            self.controller.show_frame(SelectSeatPage)
+        except IndexError:
+            tk.messagebox.showwarning("Selection Error", "Please select a session to book.")
+
+
+    def get_movie_info(self, movie_id):
+        print(f"Getting sessions for movie ID: {movie_id}")  # 调试打印
+        sessions = self.customer_controller.get_movie_sessions(movie_id)
+        if sessions:
+            self.display_sessions(sessions)
+        else:
+            print("No sessions found for this movie.")  # 如果没有找到场次，打印提示
+
+    def display_sessions(self, sessions):
+        print(f"Displaying sessions: {sessions}")  # 调试打印
+        self.session_listbox.delete(0, tk.END)  # 清空列表
+        for session in sessions:
+            self.session_listbox.insert(tk.END, f"{session['date']} - {session['time']} - Hall: {session['hall_name']}")
+
 
     def update_sessions(self, date_sessions):
-        # 更新场次信息的实现...
+
         pass
 
-    def change_date(self, delta):
-        # 更改日期的实现...
-        pass
+        Button = tk.Button(self, text="Back", font=("Arial",15), command = lambda:controller.show_frame(SearchResultPage))
+        Button.place(x=100, y=450)
 
-    def get_movie_info(self, movie_data):
-            # 用于设置电影数据的方法
-            # 这里可以更新页面上的标签或其他元素来显示电影数据
-            print(movie_data)  # 作为示例，打印出电影数据
+
+class SelectSeatPage(tk.Frame):
+    def __init__(self, parent, controller, guest_controller, user_controller, customer_controller):
+        tk.Frame.__init__(self, parent)
+        self.controller = controller
+        self.guest_controller = guest_controller
+        self.user_controller = user_controller
+        self.customer_controller = customer_controller
+
+    def display_seats(self, hall_name):
+        seats = self.customer_controller.get_hall_seats(hall_name)
+        
+        for seat in seats:
+            button = tk.Button(self, text=f'{seat["seat_number"]}', bg='green' if not seat['is_reserved'] else 'red')
+            button['command'] = lambda s=seat: self.select_seat(s) 
+            button.grid(row=seat['seat_number'], column=seat['seat_column'])
+            
+        self.update_idletasks()
+
+    def select_seat(self, seat):
+        if seat['is_reserved']:
+            messagebox.showwarning("Seat Selection", "This seat is already reserved.")
+            return
+        print(f"Seat {seat['seat_number']} selected.")
+
 
 class Application(tk.Tk):
     def __init__(self, *args, **kwargs):
         tk.Tk.__init__(self, *args, **kwargs)
+        db = Database('localhost', 'root', 'root', 'online_booking_system_dbase')
+        self.general = General()
+        self.guest_controller = GuestController(db)
+        self.user_controller = UserController(db)
+        self.customer_controller = CustomerController(db)
 
         window = tk.Frame(self)
         window.pack()
@@ -364,10 +402,10 @@ class Application(tk.Tk):
         window.grid_columnconfigure(0, minsize=800)
 
         self.frames = {}
-        for F in (FirstPage, MainPage, ThirdPage, SearchResultPage, BookingPage):
-            frame = F(window, self)
+        for F in (FirstPage, MainPage, ThirdPage, SearchResultPage, BookingPage, SelectSeatPage):
+            frame = F(window, self, self.guest_controller, self.user_controller, self.customer_controller)
             self.frames[F] = frame
-            frame.grid(row=0, column = 0, sticky='nsew')
+            frame.grid(row=0, column=0, sticky='nsew')
         self.show_frame(FirstPage)
 
     def show_frame(self, page):
