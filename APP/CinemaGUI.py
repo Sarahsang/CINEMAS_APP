@@ -303,19 +303,16 @@ class BookingPage(tk.Frame):
         tk.Frame.__init__(self, parent)
         self.controller = controller
 
-        # 页面标题
+
         self.header_label = tk.Label(self, text="Make a Booking", font=("Arial", 24))
         self.header_label.pack(side="top", fill="x", pady=10)
 
-        # 场次列表框
         self.session_listbox = tk.Listbox(self, height=10, width=50, font=('Arial', 12))
         self.session_listbox.pack(pady=20, padx=20, fill='both', expand=True)
 
-        # 预订按钮
         self.book_button = tk.Button(self, text="Book Session", font=("Arial", 15), command=self.book_session)
         self.book_button.pack(side="bottom", pady=20)
 
-        # 返回按钮
         self.back_button = tk.Button(self, text="Back", font=("Arial", 15), command=lambda: controller.show_frame(SearchResultPage))
         self.back_button.pack(side="bottom", pady=10)
 
@@ -330,7 +327,7 @@ class BookingPage(tk.Frame):
             selected_index = self.session_listbox.curselection()[0]
             selected_session = self.session_listbox.get(selected_index)
             hall_name = selected_session.split(' in ')[-1]
-            # 现在我们跳转到选择座位的页面，并传递大厅名称
+
             select_seat_page = self.controller.frames[SelectSeatPage]
             select_seat_page.display_seats(hall_name)
             self.controller.show_frame(SelectSeatPage)
@@ -339,16 +336,16 @@ class BookingPage(tk.Frame):
 
 
     def get_movie_info(self, movie_id):
-        print(f"Getting sessions for movie ID: {movie_id}")  # 调试打印
+        print(f"Getting sessions for movie ID: {movie_id}") 
         sessions = self.customer_controller.get_movie_sessions(movie_id)
         if sessions:
             self.display_sessions(sessions)
         else:
-            print("No sessions found for this movie.")  # 如果没有找到场次，打印提示
+            print("No sessions found for this movie.")  
 
     def display_sessions(self, sessions):
-        print(f"Displaying sessions: {sessions}")  # 调试打印
-        self.session_listbox.delete(0, tk.END)  # 清空列表
+        print(f"Displaying sessions: {sessions}")  
+        self.session_listbox.delete(0, tk.END)  
         for session in sessions:
             self.session_listbox.insert(tk.END, f"{session['date']} - {session['time']} - Hall: {session['hall_name']}")
 

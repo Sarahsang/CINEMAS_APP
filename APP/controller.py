@@ -34,29 +34,23 @@ class GuestController:
 class UserController:
     def __init__(self, db_connection):
         self.db = db_connection
-        self.current_user = None  # 当前用户的用户对象
-        self.is_logged_in = False  # 登录状态
+        self.current_user = None  
+        self.is_logged_in = False  
 
     def login(self, username, password):
-        # 验证用户名和密码
-        user = User(username=username, password=password)  # 这里您可能需要传递一个连接或其他必需的参数来创建User对象
+
+        user = User(username=username, password=password)  
         login_result = user.login(username, password)
         if login_result == "Login successful!":
             self.current_user = user
             self.is_logged_in = True
-            # 加载用户的其他详细信息
             self.load_user_details(username)
             return True
         else:
             return False
 
-    def load_user_details(self, username):
-        # 根据用户名加载用户的其他详细信息
-        # 这可能会涉及到从数据库中查询并更新self.current_user对象的属性
-        pass
-
     def logout(self):
-        # 处理用户登出逻辑
+
         if self.current_user:
             self.current_user.logout()
             self.current_user = None
@@ -157,89 +151,179 @@ class CustomerController(UserController):
 
 
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-    # def close_database(self):
-    #     # close the database connection using the close_connection method of the Database class
-    #     self.db_instance.close_connection()
-
-
-
-    def reset_password(self, user_id, old_password, new_password):
-        # Logic for resetting password
-        pass
-
     def admin_add_movie(self, title, lang, genre, rDate, duration, country, description):
-        # Logic for admin to add a new movie
-        pass
+        with closing(self.db.get_connection()) as conn:
+            with conn.cursor() as cursor:
+                query = """
+                INSERT INTO Movie (title, lang, genre, rDate, duration, country, description)
+                VALUES (%s, %s, %s, %s, %s, %s, %s);
+                """
+                try:
+                    cursor.execute(query, (title, lang, genre, rDate, duration, country, description))
+                    conn.commit()  
+                    return True  
+                except Exception as e:
+                    print(f"An error occurred while adding a new movie: {e}")
+                    conn.rollback()  
+                    return False  
+
 
     def admin_add_screening(self, movie_id, screening_date, start_time, end_time, hall_id):
-        # Logic for admin to add a new screening
-        pass
+        with closing(self.db.get_connection()) as conn:
+            with conn.cursor() as cursor:
+                query = """
+                INSERT INTO Screening (movie_id, screening_date, start_time, end_time, hall_id)
+                VALUES (%s, %s, %s, %s, %s);
+                """
+                try:
+                    cursor.execute(query, (movie_id, screening_date, start_time, end_time, hall_id))
+                    conn.commit()  
+                    return True  
+                except Exception as e:
+                    print(f"An error occurred while adding a new screening: {e}")
+                    conn.rollback()  
+                    return False  
+
 
     def admin_cancel_movie(self, movie_id):
-        # Logic for admin to cancel a movie
-        pass
+
+        with closing(self.db.get_connection()) as conn:
+            with conn.cursor() as cursor:
+                cancel_screenings_query = """
+                DELETE FROM Screening WHERE movie_id = %s;
+                """
+                try:
+                    cursor.execute(cancel_screenings_query, (movie_id,))
+                    cancel_movie_query = """
+                    DELETE FROM Movie WHERE movie_id = %s;
+                    """
+                    cursor.execute(cancel_movie_query, (movie_id,))
+                    conn.commit()
+                    return True
+                except Exception as e:
+                    print(f"An error occurred while cancelling the movie: {e}")
+                    conn.rollback()
+                    return False
 
     def admin_cancel_screening(self, screening_id):
-        # Logic for admin to cancel a screening
-        pass
+        with closing(self.db.get_connection()) as conn:
+            with conn.cursor() as cursor:
+                query = """
+                DELETE FROM Screening WHERE screening_id = %s;
+                """
+                try:
+                    cursor.execute(query, (screening_id,))
+                    conn.commit()
+                    return True
+                except Exception as e:
+                    print(f"An error occurred while cancelling the screening: {e}")
+                    conn.rollback()
+                    return False
+
 
     def staff_make_booking(self, user_id, screening_id, seat_ids):
-        # Logic for front desk staff to make a booking
-        pass
+        with closing(self.db.get_connection()) as conn:
+            with conn.cursor() as cursor:
+                try:
+                    create_booking_query = """
+                    INSERT INTO Booking (user_id, screening_id, number_of_seats, created_on, status, order_total)
+                    VALUES (%s, %s, %s, NOW(), 1, (SELECT SUM(seat_price) FROM CinemaHallSeat WHERE seat_id IN (%s)));
+                    """
+                    cursor.execute(create_booking_query, (user_id, screening_id, len(seat_ids), ','.join(map(str, seat_ids))))
+
+                    booking_id = cursor.lastrowid  
+
+                    for seat_id in seat_ids:
+                        create_booking_seat_query = """
+                        INSERT INTO BookingSeat (booking_id, seat_id)
+                        VALUES (%s, %s);
+                        """
+                        cursor.execute(create_booking_seat_query, (booking_id, seat_id))
+                    conn.commit()
+                    return True
+                except Exception as e:
+                    print(f"An error occurred while making a booking: {e}")
+                    conn.rollback()
+                    return False
+
 
     def staff_cancel_booking(self, booking_id):
-        # Logic for front desk staff to cancel a booking
-        pass
+        with closing(self.db.get_connection()) as conn:
+            with conn.cursor() as cursor:
+                try:
+                    update_booking_query = """
+                    UPDATE Booking SET status = 0 WHERE booking_id = %s;
+                    """
+                    cursor.execute(update_booking_query, (booking_id,))
 
-    def customer_make_booking(self, user_id, screening_id, seat_ids):
-        # Logic for customer to make a booking
-        pass
+                    release_seats_query = """
+                    UPDATE CinemaHallSeat SET is_reserved = FALSE WHERE seat_id IN (
+                        SELECT seat_id FROM BookingSeat WHERE booking_id = %s
+                    );
+                    """
+                    cursor.execute(release_seats_query, (booking_id,))
+
+                    conn.commit()
+                    return True
+                except Exception as e:
+                    print(f"An error occurred while cancelling a booking: {e}")
+                    conn.rollback()
+                    return False
+
 
     def customer_cancel_booking(self, booking_id):
-        # Logic for customer to cancel a booking
-        pass
+        with closing(self.db.get_connection()) as conn:
+            with conn.cursor() as cursor:
+                try:
+                    update_booking_query = """
+                    UPDATE Booking SET status = 0 WHERE booking_id = %s;
+                    """
+                    cursor.execute(update_booking_query, (booking_id,))
+                    release_seats_query = """
+                    UPDATE CinemaHallSeat SET is_reserved = FALSE WHERE seat_id IN (
+                        SELECT seat_id FROM BookingSeat WHERE booking_id = %s
+                    );
+                    """
+                    cursor.execute(release_seats_query, (booking_id,))
+
+                    conn.commit()
+                    return True
+                except Exception as e:
+                    print(f"An error occurred while cancelling a booking: {e}")
+
+                    conn.rollback()
+                    return False
+
 
     def customer_view_booking_list(self, user_id):
-        # Logic for customer to view their booking list
-        pass
+        with closing(self.db.get_connection()) as conn:
+            with conn.cursor(dictionary=True) as cursor:
+                try:
+                    booking_query = """
+                    SELECT * FROM Booking WHERE user_id = %s;
+                    """
+                    cursor.execute(booking_query, (user_id,))
+                    bookings = cursor.fetchall()
+                    return bookings
+                except Exception as e:
+                    print(f"An error occurred while fetching the booking list: {e}")
+                    return []
+
 
     def customer_view_notifications(self, user_id):
-        # Logic for customer to view their notifications
-        pass
+        with closing(self.db.get_connection()) as conn:
+            with conn.cursor(dictionary=True) as cursor:
+                try:
+                    notification_query = """
+                    SELECT * FROM Notification WHERE user_id = %s ORDER BY created_on DESC;
+                    """
+                    cursor.execute(notification_query, (user_id,))
+                    notifications = cursor.fetchall()
+                    return notifications
+                except Exception as e:
+                    print(f"An error occurred while fetching notifications: {e}")
+                    return []
+
     
     
 # controller = GuestController()
